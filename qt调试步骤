@@ -1,0 +1,10 @@
+直接用QT creator->file->open file or project打开CMakeLists.txt文件
+     然后在QT里面左下角选择debug模式，（如果刚才打开是没有在debug模式，可能需要再次执行cmake 注意-DCMAKE_BUILD_TYPE=Debug）然后点击锤子进行
+	 编译一般只需要勾选Debug和Release两种模式即可，点击配置项目configure project，会自动弹出cmake界面，（此时默认为第一个勾选的模式的默认参数，如此处为debug模式）
+以mnist训练为例，编译完成后在左下角caffe-》debug-》run下选择caffe.bin为执行程序，再在projects选项卡/Run里面配置arguments：train --solver=examples/mnist/lenet_solver.prototxt
+（此页面还可以根据需要改变工作目录）
+
+作者：肖良
+链接：http://www.zhihu.com/question/27987666/answer/80728225
+来源：知乎
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
