@@ -1,0 +1,338 @@
+
+boost::algorithm学习
+#include <boost/algorithm/string.hpp>
+using namespace std;
+using namespace boost;
+一：大小写转换
+1 to_upper() 将字符串转为大写
+ Example:
+ string str1(" hello world! ");
+ to_upper(str1);  // str1 == " HELLO WORLD! "
+ 
+2 to_upper_copy() 将字符串转为大写，并且赋值给另一个字符串
+ Example:
+ string str1(" hello world! ");
+ string str2;
+ str2 = to_upper_copy(str1);  // str2 == " HELLO WORLD! "
+ 
+3 to_lower() 将字符串转为小写
+ Example:参看to_upper()
+4 to_lower_copy() 将字符串转为小写，并且赋值给另一个字符串
+ Example:参看to_upper_copy()
+ 
+二：Trimming（整理，去掉首尾的空格字符）
+1 trim_left() 将字符串开头的空格去掉
+ Example:
+ string str1(" hello world! ");
+ trim_left(str1);      // str1 == "hello world! "
+ 
+2 trim_left_if() 将字符串开头的符合我们提供的“谓词”的特定字符去掉
+ Example:
+ bool NotH(const char &ch)
+ {
+  if(ch == ' ' || ch == 'H' || ch == 'h')
+   return true;
+  else
+   return false;
+ }
+ ....
+ string str1(" hello world! ");
+ trim_left_if(str1, NotH);      // str1 == "ello world! "
+ 
+3 trim_left_copy() 将字符串开头的空格去掉，并且赋值给另一个字符串
+ Example:
+ string str1(" hello world! ");
+ string str2;
+ str2 = trim_left_copy(str1); // str2 == "hello world! "
+ 
+4 trim_left_copy_if() 将字符串开头的符合我们提供的“谓词”的特定字符去掉，并且赋值给另一个字符串
+ Example:
+ string str1(" hello world! ");
+ string str2;
+ str2 = trim_left_copy_if(str1, NotH);      // str2 == "ello world! "
+ 
+// 将字符串结尾的空格去掉，示例请参看上面
+5 trim_right_copy_if()
+6 trim_right_if()
+7 trim_right_copy()
+8 trim_right()
+
+// 将字符串开头以及结尾的空格去掉，示例请参看上面
+9 trim_copy_if()
+10 trim_if()
+11 trim_copy()
+12 trim()
+
+三：谓词
+1 starts_with()  判断一个字符串是否是另外一个字符串的开始串
+ Example:
+ string str1("hello world!");
+ string str2("hello");
+ bool result = starts_with(str1, str2); // result == true
+ 
+2 istarts_with() 判断一个字符串是否是另外一个字符串的开始串(不区分大小写)
+ Example:
+ string str1("hello world!");
+ string str2("Hello");
+ bool result = istarts_with(str1, str2); // result == true
+
+3 ends_with()  判断一个字符串是否是另外一个字符串的结尾串
+4 iends_with()  判断一个字符串是否是另外一个字符串的结尾串(不区分大小写)
+
+5 contains() 判断一个字符串是否包含另外一个字符串
+ Example:
+ string str1("hello world!");
+ string str2("llo");
+ bool result = contains(str1, str2); // result == true
+6 icontains() 判断一个字符串是否包含另外一个字符串(不区分大小写)
+
+7 equals()  判断两个字符串是否相等
+8 iequals()  判断两个字符串是否相等(不区分大小写)
+
+9 lexicographical_compare()  按照字典排序，如果第一个字符串小于第二个字符串，返回true  （我的boost1.33没有实现？）
+10 ilexicographical_compare() 按照字典排序，如果第一个字符串小于第二个字符串，返回true(不区分大小写)（我的boost1.33没有实现？
+
+）
+
+11 all() 判断字符串中的所有字符是否全部满足这个谓词
+ Example:
+ bool is_123digit(const char &ch)
+ {
+  if(ch == '1' || ch == '2' || ch == '3')
+   return true;
+  else
+   return false;
+ }
+ ...
+ string str1("12332211");
+ bool result = all(str1, is_123digit); // result == true
+ str1 = "412332211";
+ result = all(str1, is_123digit); // result == false
+
+四：查找
+1 find_first() 从头查找字符串中的子字符串，返回这个子串在原串中的iterator_range迭代器
+ Example:
+ char ToUpper(char &ch)
+ char ToUpper(char &ch)
+ {
+  if(ch <= 'z' && ch >= 'a')
+   return ch + 'A'-'a';
+  else
+   return ch;
+ }
+ ...
+ string str1("hello dolly!");
+ iterator_range<string::iterator> result = find_first(str1,"ll");
+ transform( result.begin(), result.end(), result.begin(), ToUpper ); // str1 == "heLLo dolly!"
+2 ifind_first() 从头查找字符串中的子字符串，返回这个子串在原串中的iterator_range迭代器(不区分大小写)
+
+3 find_last() 从尾查找字符串中的子字符串，返回这个子串在原串中的iterator_range迭代器
+4 ifind_last() 从尾查找字符串中的子字符串，返回这个子串在原串中的iterator_range迭代器(不区分大小写)
+
+5 find_nth() 找到第n个匹配的子串（计算从0开始）
+ Example:
+ string str1("hello dolly!");
+ iterator_range<string::iterator> result = find_nth(str1,"ll", 1);
+ transform( result.begin(), result.end(), result.begin(), ToUpper ); // str1 == "hello doLLy!"
+6 ifind_nth() 找到第n个匹配的子串（计算从0开始）(不区分大小写)
+
+7 find_head() 找到字符串的前n个字节
+ Example:
+ string str1("hello dolly!");
+ iterator_range<string::iterator> result = find_head(str1,5);
+ transform( result.begin(), result.end(), result.begin(), ToUpper ); // str1 == "HELLO dolly!"
+8 find_tail() 找到字符串的后n个字节
+
+9 find_token() 找到符合谓词的串
+ Example:
+ char Add1(const char &ch)
+ {
+  return ch+1;
+ }
+ ...
+ string str1("hello 1 world!");
+ iterator_range<string::iterator> result = find_token(str1,is_123digit);
+ transform( result.begin(), result.end(), result.begin(), Add1 ); // str1 == "hello 2 world!");
+
+10 find_regex() 匹配正则表达式
+ Example:（等稍候了解了boost的正则表达式后再给出）
+
+11 find() 使用自己写的查找函数
+ Example:
+ iterator_range<string::iterator>
+ MyFinder1( std::string::iterator begin, std::string::iterator end )
+ {
+  std::string::iterator itr;
+  for(itr = begin;itr!=end;itr++)
+  {
+   if((*itr) == '1')
+   {
+    std::string::iterator preitr = itr;
+    iterator_range<string::iterator> ret(preitr, ++itr);
+    return ret;
+   }
+  }
+  return iterator_range<string::iterator>();
+ } // boost自己也提供了很多Finder
+ ...
+ string str1("hello 1 world!");
+ iterator_range<string::iterator> result = find(str1,MyFinder1);
+ transform( result.begin(), result.end(), result.begin(), Add1 ); // str1 == "hello 2 world!");
+
+ 五：删除/替换
+1 replace_first() 从头找到第一个匹配的字符串，将其替换为给定的另外一个字符串
+ Example:
+ string str1("hello world!");
+ replace_first(str1, "hello", "Hello"); // str1 = "Hello world!"
+2 replace_first_copy()  从头找到第一个匹配的字符串，将其替换为给定的另外一个字符串，并且赋
+
+值给另一个字符串
+ Example:
+ string str1("hello world!");
+ string str2;
+ str2 = replace_first_copy(str1, "hello", "Hello"); // str2 = "Hello world!"
+3 ireplace_first()  从头找到第一个匹配的字符串，将其替换为给定的另外一个字符串(不区分大小写
+
+)
+4 ireplace_first_copy()  从头找到第一个匹配的字符串，将其替换为给定的另外一个字符串，并且赋
+
+值给另一个字符串(不区分大小写)
+5 erase_first()   从头找到第一个匹配的字符串，将其删除
+ Example:
+ string str1("hello world!");
+ erase_first(str1, "llo"); // str1 = "He world!"
+6 erase_first_copy() 从头找到第一个匹配的字符串，将其删除，并且赋值给另一个字符串
+ Example:
+ string str1("hello world!");
+ string str2;
+ str2 = erase_first_copy(str1, "llo"); // str2 = "He world!"
+7 ierase_first()  从头找到第一个匹配的字符串，将其删除(不区分大小写)
+8 ierase_first_copy() 从头找到第一个匹配的字符串，将其删除，并且赋值给另一个字符串(不区分大
+
+小写)
+
+// 与上面类似，不过是从字符串尾开始替换
+9 replace_last()
+10 replace_last_copy()
+11 ireplace_last()
+12 ireplace_last_copy()
+13 erase_last()
+14 erase_last_copy()
+15 ierase_last()
+16 ierase_last_copy()
+
+// 与上面类似，不过是从字符串n个匹配的开始替换
+17 replace_nth()
+ Example:
+ string str1("hello world!");
+ replace_nth(str1, "o", 1, "O"); // str1 = "hello wOrld!"
+18 replace_nth_copy()
+19 ireplace_nth()
+20 ireplace_nth_copy()
+21 erase_nth()
+22 erase_nth_copy()
+23 ierase_nth()
+24 ierase_nth_copy()
+
+// 与上面类似，不过是将所有的匹配字符串替换
+25 replace_all()
+26 replace_all_copy()
+27 ireplace_all()
+28 ireplace_all_copy()
+29 erase_all()
+30 erase_all_copy()
+31 ierase_all()
+32 ierase_all_copy()
+
+33 replace_head() 替换前n个字符
+ Example:
+ string str1("hello world!");
+ replace_head(str1, 5, "HELLO"); // str1 = "HELLO world!"
+
+34 replace_head_copy() 替换前n个字符，并且赋值给另一个字符串
+ Example:
+  string str1("hello world!");
+ string str2;
+ str2 = replace_head_copy(str1, 5, "HELLO"); // str2 = "HELLO world!"
+
+35 erase_head() 删除前n个字符
+ Example:
+ string str1("hello world!");
+ erase_head(str1, 5); // str1 = " world!"
+
+36 erase_head_copy()  删除前n个字符，并且赋值给另一个字符串
+ Example:
+  string str1("hello world!");
+ string str2;
+ str2 = erase_head_copy(str1, 5); // str2 = " world!"
+
+// 与上面类似(替换/删除后n个字符)
+37 replace_tail()
+38 replace_tail_copy()
+39 erase_tail()
+40 erase_tail_copy()
+
+// 与正则表示式相关，稍后了解。
+41 replace_regex()
+42 replace_regex_copy()
+43 erase_regex()
+44 erase_regex_copy()
+45 replace_all_regex()
+46 replace_all_regex_copy()
+47 erase_all_regex()
+48 erase_all_regex_copy() 
+
+// 不是很清楚，稍后了解
+49 find_format()
+50 find_format_copy()
+51 find_format_all()
+52 find_format_all_copy()
+
+六：切割
+1 find_all() 查找所有匹配的值，并且将这些值放到给定的容器中
+ Example:
+ string str1("hello world!");
+ std::vector<std::string> result;
+ find_all(result, str1, "l"); // result = [3]("l","l","l")
+
+2 ifind_all() 查找所有匹配的值，并且将这些值放到给定的容器中(不区分大小写)
+
+3 find_all_regex() 与正则表达式相关，稍后了解
+
+4 split() 按照给定的谓词切割字符串，并且把切割后的值放入到给定的容器中
+ Example:
+ class SplitNotThisChar
+ {
+ public:
+  SplitNotThisChar(const char ch) : m_char(ch) {}
+  bool operator ()(const char &ch) const
+  {
+   if(ch == m_char)
+    return true;
+   else
+    return false;
+  }
+ private:
+  char m_char;
+ };
+
+ string str1("hello world!");
+ string str2;
+ std::vector<std::string> result;
+ split(result, str1, SplitNotThisChar('l'));  // result = [4]("he","","o wor","d!")
+
+5 split_regex()  与正则表达式相关，稍后了解
+
+6 iter_find() 按照给定Finder查找字符串，并且把查找到的值放入到给定的容器中
+ Example:
+ string str1("hello world!");
+ std::vector<std::string> result;
+ // first_finder为Boost自带的Finder
+ iter_find(result, str1, first_finder("l")); // result = [3]("l","l","l")
+
+7 iter_split() 按照给定的Finder切割字符串，并且把切割后的值放入到给定的容器中
+ Example:
+ string str1("hello world!");
+ std::vector<std::string> result;
+ iter_split(result, str1, first_finder("l")); // result = [4]("he","","o wor","d!")
+
