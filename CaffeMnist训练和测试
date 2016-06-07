@@ -1,0 +1,232 @@
+用Caffe 训练和测试MNIST数据：
+
+
+1. 准备数据
+1.1 运行脚本，从MNIST网站下载和转换数据格式:
+在Caffe安装路径下执行 /data/mnist: ./get_mnist.sh
+              ／examples/mnist: ./create_mnist.sh
+1.2 运行完以上脚本后得到两个数据集： mnist_train_lmdb,
+      mnist_test_lmdb
+
+
+2. 使用LeNet模型定义分类，但在我们的分类应用中，最初LeNet中的神经元由s型激活被替换成
+   校正线性单元（ReLU）激活，一般说来LeNet包含convolutional layer,后面是pooling
+   layer，另一个convolutional layer，紧跟pooling layer,然后将类似与卷及多层感知器
+   的两个层连接，上述层被定义在 /examples/mnist/lenet_train_test.prototxt
+
+
+3. 定义MNIST Network
+   在/src/caffe/proto/caffe.proto中可以了解Caffe protobuf的定义，通常我们写一个
+   caffe::NetParameter(或者Python, caffe.proto.caffe_pb2.NetParameter)，我们
+   定义该network名称 name: "LeNet"
+3.1 写Data Layer
+   目前我们从之前创立的lmdb中读取MNIST data,该数据层定义为
+layers {
+  name: "mnist"
+  type: DATA
+  data_param {
+source: "mnist_train_lmdb"
+backend: LMDB
+batch_size: 64
+scale: 0.00390625
+     }
+   top: "data"
+   top: "label"
+      }
+该layer名称为mnist, 类型为data, 从给定的lmdb读取数据。bactch size 为64
+scale输入像素使得它们在[0,1)之间变化，0.00390625 = 1 / 256, 最后该层产生
+两个blobs,一个是data blob, 另一个是label blob
+
+
+3.2 写Convolution Layer
+    定义地一层convolution layer:
+layers {
+  name: "conv1"
+  tyoe: CONVOLUTION
+  blobs_lr: 1.
+  blobs_lr: 2.
+  convolution_param {
+num_output: 20
+kernelsize: 5
+stride: 1
+weight_filler {
+                     type: "xavier"    
+     }
+bias_filler  {
+ type: "constant"
+    }
+   }
+   bottom: "data"
+   top: "conv1"
+      }
+该层接收data blob（由data layer提供），产生conv1 layer, 其产生 20 channels的
+输出， convolutional kernel size为 5， 以 stride 为 1 产生结果。
+
+fillers允许我们随机初始化weights和bias值，对于weight filler,我们使用 xavier
+算法基于输入输出神经元数目来决定初始scale. 对于bias filler，我们仅仅初始化其为常数，
+default filling 值为 0.
+
+
+blobs_lr是 learning rate. 在该情况下， 我们会设置weight learning rate 和 solver在
+runtime 期间给定的 learning rate相同， bias learning rate 通常比 weight learning
+        rate 大2倍， 这会导致较好的 convergence rates.
+
+
+3.3 写Pooling Layer
+    Pooling Layers通常比较容易去定义
+layers {
+  name: "pool1"
+  type: POOLING
+  pooling_param {
+kernel_size: 2
+stride: 2
+pool: MAX
+}
+  bottom: "conv1"
+  top: "pool1"
+      }
+该层定义表明我们以kernel size为2， stride 为2（因此在neighboring poolings regions
+之间没有c重叠）来执行max pooling
+
+
+类似地，你还可以定义第二个covolution和pooling layers, 具体可参考
+/examples/mnist/lenet_train_test.prototxt
+
+
+3.4 写Fully connected Layer
+    Fully connected Layer也很简单：
+layers {
+  name: "ip1"
+  type: INNER_PRODUCT
+  blobs_lr: 1.
+  blobs_lr: 2.
+  inner_product_param {
+num_output: 500
+weight_filler {
+type: "xavier"
+     }
+bias_filler {
+type: "constant"
+   }
+      }
+  bottom: "pool2"
+  top: "ip1"
+      }
+
+
+该层定义了Fully connected layer(因为一些原因，Caffe称该层为一种innerproduct layer)
+具有500个输出
+
+
+3.5 写ReLU Layer
+     ReLU Layer也很简单：
+layers {
+  name: "relu1"
+  type: RELU
+  bottom: "ip1"
+  top: "ip1"
+      }
+由于ReLU是一种element-wise操作， 我们可以做in-place去节约内存。仅仅给bottom和top blobs
+相同的名字就能实现该目标，当然，我们不给其他layer Types使用duplicated blob名字。
+
+
+在ReLU layer之后，我们可以写另一个innerproduct layer:
+layers {
+  name: "ip2"
+  type: INNER_PRODUCT
+  blobs_lr: 1.
+  blobs_lr: 2.
+  inner_product_param {
+num_output: 10
+weight_filler {
+type: "xavier"
+     }
+bias_filler {
+type: "constant"
+   }
+      }
+  bottom: "ip1"
+  top: "ip2"
+      }
+
+
+3.6 写Loss Layer
+     最后写loss
+layers {
+   name： “loss”
+   type: SOFTMAX_LOSS
+   bottom: "ip2"
+   bottom: "label"
+      }
+softmax_loss layer结合softmax和multinomial logistic loss(节省时间和提高稳定性)
+该层接收2个blobs,第一个预测，第二个由data layer提供的label. 第二个不会产生任何outputs
+它所做的是计算loss function 的值， 当 backpropagation 开始的时候，report 该值，
+并表明梯度为ip2
+
+
+3.6 写Layer Rules
+Layer definition可以包括是否以及何时在network definition中的rules
+layers {
+  //...layer definition...
+  include: { phase: TRAIN }
+      }
+这是一个规则，基于当前network's state来控制network中的layer inclusion. 详细可参考
+/src/caffe/proto/caffe.proto
+在以上的例子中，该layer包含在TRAIN阶段，如果我们将TRAIN改为TEST,那么该layer就会被应用于
+test 阶段。lenet_train_test.prototxt有两个DATA layers(定义为不同的batch_size)
+一个是training phase另一个是testing phase.并且，在TEST phase有一个ACCURACY layer
+每100 次iteration就会报告model accuracy, 定义于lenet_solver.protxt.
+
+
+4. 定义MNIST Solver
+检查在prototxt中每行的注释解释：
+/examples/mnist/lenet_solver.prototxt:
+
+
+5. 训练和测试模型
+5.1 在已经写了network definition protobut和 solver protobuf files之后，cd到文件夹
+   /examples/mnist仅仅执行：
+./train_lenet.sh
+PS: 运行脚本时注意脚本中的路径要改成自己安装caffe时的绝对路径，否则会出错
+
+说明： 运行代码初始化时，出现的信息包括每一层的详细信息，其连接和输出形状，该信息有助于debugging.
+初始化之后，开始training,基于solver setting,根据设置，每100次iterations将会打印出training
+loss function，每1000次iterations将会测试network,出现的信息中，对于每一次training iteration
+lr是iteration的learning rate, loss是training function,对于testing phase的输出，
+score 0 是精确度， scorce 1是 testing loss function.
+
+
+5.2 经过几分钟后，Optimization Done信息出现表明训练完成，最终的model，以二进制protobuf file
+存储在 lenet_iter_10000， 接下来你可以将此训练模型用于实际的数据集。
+
+
+6. GPU和CPU training 转换
+只需要在 lenet_solver.prototxt中 改成solver_mode：CPU,则实现从GPU向CPU的转换训练，对于
+小数据集，CPU和GPU速度相差不大，当在大数据集上运行时，这种差距就会很显著。
+
+
+7. 总结lenet_solver.prototxt中的各参数含义
+iteration： 数据进行一次前向-后向的训练
+batchsize: 每次迭代训练图片的数量
+epoch: 1个epoch就是将所有的训练图像全部通过网络训练一次
+
+例如：例子中1280000张图片，batchsize=256,则1个epoch需要1280000/256=5000次iteration
+它的max-iteration=450000,则共有450000/5000=90个epoch,而lr什么时候衰减与stepsize
+有关，减少多少与gamma有关，即:若stepsize=500, base-lr=0.01, gamma=0.1,则当迭代到
+第一个500次时，lr第一次衰减，衰减后的lr=lr*gamma=0.01*0.1=0.001,以后重复该过程，所以
+stepsize是lr的衰减步长，gamma是lr的衰减系数。在训练过程中，每到一定的迭代次数都会test net,
+这里的迭代次数是由test-interval决定的，如test=1000,则每迭代1000次测试一遍网络，而
+test-size, test-iter, 和test图片的数量决定了怎样test, test-size决定了test时每次
+迭代输入图片的数量，test-iter就是test所有的图片的迭代次数，如：500张test图片，test-iter=100
+则test-size=5, 而solver文档里只需要根据test图片总数量来设置test-iter，以及根据需要
+设置test-interval即可。
+
+
+8. 测试数据集
+8.1 有三种接口可以进行测试数据，命令行、Python、MATLAB，本例中采用命令行进行测试，在
+   /examples/mnist路径下，执行：
+./test_lenent.sh
+   注意： test_lenent.sh脚本是自己根据train_lenet.sh脚本对照改写的，具体脚本内容
+   可参考Caffe官网tutorial/interfaces中TEST的讲解
+
+8.2 经过几分钟，测试数据成功，然后可以修改参数，再进行测试，并根据结果分析数据！
