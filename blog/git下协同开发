@@ -1,0 +1,106 @@
+描述：
+
+How to co-work wither parter via github.
+
+Github协同开发情景模拟
+
+Github不仅有很多开源的项目可以参考，同样也是协同开发的最佳工具，接下来的就模拟一下协同开发的过程。
+
+项目发起者：koffuxu
+项目贡献者之一：xugangfeng
+
+
+1，koffuxu发起了一个项目，然后发布到github上，邀请xugangfeng来协同开发
+
+1.1 在github上 New Repository
+image
+
+1.2 在koffuxu的服务器clone下这个repository，然后把自己的初步内容添加到这个仓库
+1  	git clone https://github.com/koffuxu/Embedded_Android_in_Chinese.git
+
+1.3 把自己的基础项目push到github
+1  	git push -u origin master
+
+
+2，xugangfeng接到邀请，开发协同开发这个项目，首先先建好开发目录
+
+2.1 进入koffuxu的github项目地址(https://github.com/koffuxu/Embedded_Android_in_Chinese.git)，先fork这个项目到自己（xugangfeng）的项目中
+
+Image 
+
+2.2 把fork过来的项目clone到xugangfeng的本地
+1  	git clone https://github.com/xugangfeng/Embedded_Android_in_Chinese.git
+
+2.3 新建并切换到工作(dev)分支
+1  	git brach dev
+2  	git checkout dev 
+
+Image
+
+2.4 把koffuxu的项目添加xugangfeng的远程仓库
+1  	git remote add upstream https://github.com/koffuxu/Embedded_Android_in_Chinese
+
+Image
+
+2.5 把koffuxu的分支拿下来
+1  	git remote update
+
+Image
+
+2.6 把koffuxu的maser分支更新到本地
+
+Image
+
+2.7 合并koffuxu的分支到本地(其实第一次可以不需要)
+1  	git rebase upstream/master
+ 
+
+Image
+
+ 
+
+3，xugangfeng实现了一个功能，现在他要开始提交这个commit了。
+
+3.1 当然这个是正常代码的提交，大概流程如下
+1  	git add test.md
+2  	git commit -m "modify from xugangfeng"
+3  	git push -u origin dev 
+
+3.2 这时候，xugangfeng进入github网页，进入compare & pull request，填写一些信息，crete pull request即可。
+
+image
+
+image
+
+
+4，koffuxu接下来把xugangfeng的提交合并到master分支
+
+4.1 进入github koffux的项目中，可以看到有一个pull request的提示，然后comfirm merge即可
+
+image
+
+image
+
+4.2 接下来进入koffuxu的本地，执行Git pull查看是否已经更新了。
+
+image
+
+
+5，还有一个场景，就是koffuxu有更新了，xugangfeng需要更新合并
+
+5.1 koffuxu又在c4.md新增了一条
+
+Image
+
+5.2 贡献者xugangfeng,就需要在原来的基本上更新合并了。
+1  	git remote update upstream
+Image
+
+5.3 xugangfeng开始要合并更新
+1  	git rebase upstream/master
+
+Image
+
+5.4 git log查看，已经合并过来了
+
+Image
