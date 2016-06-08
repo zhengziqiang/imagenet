@@ -1,0 +1,114 @@
+上一篇学习了google的数据描述语言，然后在caffe配置好的基础上进行一个简单的编码例子测试。
+
+可能大家开始不太好找protobuf的编译器默认的安装位置，我直接使用/usr/bin/protoc命令进行操作。
+
+开始建一个proto文件文件名一般按照
+
+packageName.MessageName.proto（标准命名方法）
+[cpp] view plain copy
+
+     package lm;   
+     message helloworld   
+     {   
+        required int32     id = 1;  // ID   
+        required string    str = 2;  // str   
+        optional int32     opt = 3;  //optional field   
+     }  
+
+然后编译 lm.helloworld.proto 文件：
+
+运行：
+
+[cpp] view plain copy
+
+    $ cd /usr/bin  
+    $ protoc -I=/home/lb/pratice/protobuf --cpp_out=/home/lb/pratice/protobuf /home/lb/pratice/protobuf/lm.helloworld.proto  
+
+就生成了
+
+lm.helloworld.pb.h ， 定义了 C++ 类的头文件
+
+lm.helloworld.pb.cc ， C++ 类的实现文件
+
+可以看到已经生产了这两个文件。
+
+接下来就是编写writer.cc和reader.cc
+
+writer.cc：
+
+[cpp] view plain copy
+
+    #include "lm.helloworld.pb.h"    
+    #include <fstream>    
+    #include <iostream>    
+    using namespace std;    
+        
+    int main(void)     
+    {     
+        
+        lm::helloworld msg1;     
+        msg1.set_id(101);     
+        msg1.set_str("hello");     
+        fstream output("./write_log", ios::out | ios::trunc | ios::binary);     
+        
+        if (!msg1.SerializeToOstream(&output)) {     
+            cerr << "Failed to write msg." << endl;     
+            return -1;     
+        }            
+        return 0;     
+    }    
+
+reader.cc：
+
+[cpp] view plain copy
+
+        #include "lm.helloworld.pb.h"    
+        #include <fstream>    
+        #include <iostream>    
+        using namespace std;    
+            
+        void ListMsg(const lm::helloworld & msg) {      
+            cout << msg.id() << endl;     
+            cout << msg.str() << endl;     
+        }     
+            
+        int main(int argc, char* argv[]) {     
+            
+            lm::helloworld msg1;     
+            
+            {     
+                fstream input("./write_log", ios::in | ios::binary);     
+                if (!msg1.ParseFromIstream(&input)) {     
+                    cerr << "Failed to parse address book." << endl;     
+                    return -1;     
+                }           
+            }     
+            ListMsg(msg1);  
+            fstream out("./reader_log",ios::out);   
+            if(out.is_open())  
+            {  
+            out << msg1.id()<<endl;     
+            out << msg1.str()<<endl;  
+            out.close();  
+            }  
+     }    
+
+
+这两个文件已经写好了。
+
+运行以下命令：
+
+[cpp] view plain copy
+
+    $ cd /home/lb/pratice/protobuf  
+    $ g++  lm.helloworld.pb.cc writer.cc -o writer  `pkg-config --cflags --libs protobuf` -lpthread  
+    $ ./writer  
+    $ g++  lm.helloworld.pb.cc reader.cc -o reader  `pkg-config --cflags --libs protobuf` -lpthread  
+    $ ./reader  
+
+就会输出：
+
+[cpp] view plain copy
+
+    101  
+    hello  

@@ -1,0 +1,1013 @@
+
+Protocol Buffers 是一种轻便高效的结构化数据存储格式，可以用于结构化数据串行化，或者说序列化。它很适合做数据存储或 RPC 数据交换格式。可用于通讯协议、数据存储等领域的语言无关、平台无关、可扩展的序列化结构数据格式。目前提供了 C++、Java、Python 三种语言的 API。
+
+本文概述介绍Protocol Buffers，以及开始如何开始Protocol Buffers之旅，本系列主要以Java为主(虽然超想看Python的，无奈学的还不够...)。
+
+以下Protocol Buffers简称PB。
+2. Protocol Buffers是什么
+
+Protocol Buffers提供了一种灵活，高效，自动序列化结构数据的机制，可以联想XML，但是比XML更小，更快，更简单。仅需要自定义一次你所需的数据格式， 然后用户就可以使用Protocol Buffers自动生成的特定的源码，方便的读写用户自定义的格式化的数据。不限语言，不限平台。还可以在不破坏原数据格式的基础上，依据老的数据格式， 更新现有的数据格式。
+3. Protocol Buffers如何工作的
+
+在PB中，有一种.proto类型的文件，用户 在.proto文件中定义PB “Message”来指定所需要序列化的数据的格式。每一个PB Message都是一个小的信息逻辑单元，包含了一些列的name-value对。下面举例说明一个简单地.proto文件，他定义了一条包含一个 Person信息的Message：
+
+[cpp] view plain copy
+
+    message Person {  
+      required string name = 1;  
+      required int32 id = 2;  
+      optional string email = 3;  
+      enum PhoneType {  
+        MOBILE = 0;  
+        HOME = 1;  
+        WORK = 2;  
+      }  
+      message PhoneNumber {  
+        required string number = 1;  
+        optional PhoneType type = 2 [default = HOME];  
+      }  
+      repeated PhoneNumber phone = 4;  
+    }  
+
+如上代码所示，PB message 格式非常简单。每种类型的message包含一个或者多个唯一编码字段，每个字段由名称和值类型组成，值类型可以使数字(整形或者浮点型)，布尔值，字符 串，原始字节，甚至是其他的PB message。PB允许message中包含message，已达到分层嵌套。可以定义可选字段，必填字段以及重复字段。想要了解更多如何 写.proto 文件，可以访问：Protocol Buffer Language Guide
+
+定 义好PB message后，选择合适语言的PB编译器，编译.proto文件，就可以生成存取数据的相关类。这些类包括简单的设置及读取字段的方法，也包括对整个 数据结构的message与二进制之间的转换。举个例子，如果你使用的语言是java，运行编译器编译上例.proto文件后，生成的类中包含一个 Person类。使用该类，就可以计算，序列化以及检索PB message。如下代码:
+[cpp] view plain copy
+
+    public static void main(String[] args) throws IOException {  
+        Person john = Person  
+                .newBuilder()  
+                .setId(1)  
+                .setName("john")  
+                .setEmail("john@youku.com")  
+                .addPhone(  
+                    PhoneNumber  
+                        .newBuilder()  
+                        .setNumber("1861xxxxxxx")  
+                        .setType(PhoneType.WORK)  
+                        .build())  
+                .build();  
+        FileOutputStream output = new FileOutputStream("abc.txt");  
+        john.writeTo(output);  
+        output.close();  
+    }  
+
+接下来，你可以用如下代码读取：
+
+[cpp] view plain copy
+
+    public static void main(String[] args) throws IOException {  
+        FileInputStream input = new FileInputStream("abc.txt");  
+        Person person = Person.parseFrom(input);  
+        System.out.println(person.getId());  
+        System.out.println(person.getName());  
+        System.out.println(person.getEmail());  
+        System.out.println(person.getPhoneCount());  
+        System.out.println(person.getPhone(0).getNumber());  
+        System.out.println(person.getPhone(0).getType());  
+    }  
+
+PB是易于扩展的，可以向后兼容的，我们可以在PB message中添加新的字段，这样，在parse的时候，老版本的数据就会简单的忽略新增加的字段。因此，如果现有通信协议使用了PB作为其数据格式，我们可以直接扩展该通信协议，而不必担心这将会破坏现有的代码。
+
+对于使用.proto文件生成PB 客户端代码，可以参看这方面的完整教程：API Reference section。想要学习了解PB message是如何编码的，可以参见：Protocol Buffer Encoding。
+
+4. 为什么不直接使用XML呢？
+
+如果要序列化结构化数据，比起XML，PB实在是有许多的优点可以道道~
+
+    更简单
+    比XML小3~10倍
+    比XML快20~100倍
+    语义定义明确
+    自动生成数据存取类，更容易使用
+
+假如我们要模拟一个Person，该对象包含name和email属性，如果用XML，我们定义如下：
+[cpp] view plain copy
+
+    <person>  
+        <name>John Doe</name>  
+        <email>jdoe@example.com</email>  
+    </person>  
+
+对应的，PB如下：
+
+[cpp] view plain copy
+
+    person {  
+      name: "John Doe"  
+      email: <a target=_blank href="mailto:jdoe@example.com">jdoe@example.com</a>  
+    }  
+
+请注意：这里仅是PB格式的一种直观表示，真实的PB并非这样存储，实际上，在链路中，PB数据时二进制格式的。
+
+当这段数据编码为PB二进制格式时，其实际大小大概是28bytes，编码时间为100~200纳秒。如果用XML的话，即使去除空格，大小也至少为69bytes，编码时间大概需要5000~10,000纳秒。
+
+同样，解析这段代码，PB比XML要方便许多。用PB的话：
+[cpp] view plain copy
+
+    person.getName();  
+    person.getEmail();  
+
+而用XML的话：
+[cpp] view plain copy
+
+    personNode.getElementsByTagName("name")  
+    personNode.getElementsByTagName("email")  
+
+相比起来，PB更直接，而且不需要遍历节点等XML操作。但是，金无足赤，人无完人，PB也一样。对于有很多标签的，基于文本的数据(例如HTML)，XML就完胜PB。XML是子描述的，可以随机且交错读取读取文本节点。XML是自描述的，而PB不是，PB必须要有格式定义文件(.proto 文件)
+ 5. 一点历史
+
+PB由Google开发，最初是用于处理索引服务器的请求/响应协议。在有PB之前，Google使用手动编组和解组的方式来处理请求/相应协议。这种方式需要支持许多版本的协议，这就导致一些代码非常的丑陋，例如：
+
+[cpp] view plain copy
+
+    if (version == 3) {  
+       ...  
+     } else if (version > 4) {  
+       if (version == 5) {  
+         ...  
+       }  
+       ...  
+     }  
+
+另外，这种显示格式的协议同样将新发布的协议版本也搞得非常复杂，因为开发者必须在启用新的协议之前，确认所有的服务器，包括请求的发起者以及实际处理请求者，他们都能够理解新的协议。
+
+PB即被设计来解决这些问题：
+
+    要可以非常容易的引入新字段，不需要检查数据的中间服务器 能够简单地解析数据，并且无须知道数据所有的字段就可以传输数据。
+    格式能够更加的自描述一些，并且可以被多用语言处理(C ++， Java，Python等)
+
+至此，虽然解决了诸多问题，但用户依然需要手写他们的解析及编码代码。
+
+随着系统的发展，PB逐渐形成了许多新的特性及用法：
+
+     自动生成序列化及反序列化代码，避免手动解析
+    除了被用在短生命周期的RPC请求，也开始将PB作为一种方便的自描述格式去存储持久化数据。
+    Server RPC interfaces 开始被声明为协议文件的一部分，使用PB compiler 生成stub类，用户可以使用自己实现的服务器接口来覆盖他们。
+
+Google Protocol Buffer( 简称 Protobuf) 是 Google 公司内部的混合语言数据标准，目前已经正在使用的有超过 48,162 种报文格式定义和超过 12,183 个 .proto 文件。他们用于 RPC 系统和持续数据存储系统。
+
+==========================================================================================================
+
+《Google Protocol Buffers 入门》
+1. 前言
+
+这篇入门教程是基于Java语言的，这篇文章我们将会：
+
+    创建一个.proto文件，在其内定义一些PB message
+    使用PB编译器
+    使用PB Java API 读写数据
+
+这篇文章仅是入门手册，如果想深入学习及了解，可以参看： Protocol Buffer Language Guide, Java API Reference, Java Generated Code Guide, 以及Encoding Reference。
+2. 为什么使用Protocol Buffers
+
+接下来用“通讯簿”这样一个非常简单的应用来举例。该应用能够写入并读取“联系人”信息，每个联系人由name，ID，email address以及contact photo number组成。这些信息的最终存储在文件中。
+
+如何序列化并检索这样的结构化数据呢？有以下解决方案：
+
+     使用Java序列化(Java Serialization)。这是最直接的解决方式，因为该方式是内置于Java语言的，但是，这种方式有许多问题(Effective Java 对此有详细介绍)，而且当有其他应用程序(比如C++ 程序及Python程序书写的应用)与之共享数据的时候，这种方式就不能工作了。
+    将数据项编码成一种特殊的字符串。例如将四个整数编码成“12:3:-23:67”。这种方法简单且灵活，但是却需要编写独立的，只需要用一次的编码和解码代码，并且解析过程需要一些运行成本。这种方式对于简单的数据结构非常有效。
+    将数据序列化为XML。这种方式非常诱人，因为易于阅读(某种程度上)并且有不同语言的多种解析库。在需要与其他应用或者项目共享数据的时候，这是一种非常有效的方式。但是，XML是出了名的耗空间，在编码解码上会有很大的性能损耗。而且呢，操作XML DOM数非常的复杂，远不如操作类中的字段简单。
+
+Protocol Buffers可以灵活，高效且自动化的解决该问题，只需要：
+
+    创建一个.proto 文件，描述希望数据存储结构
+    使用PB compiler 创建一个类，该类可以高效的，以二进制方式自动编码和解析PB数据
+
+该生成类提供组成PB数据字段的getter和setter方法，甚至考虑了如何高效的读写PB数据。更厉害的是，PB友好的支持字段拓展，拓展后的代码，依然能够正确的读取原来格式编码的数据。
+3. 定义协议格式
+
+首先需要创建一个.proto文件。非常简单，每一个需要序列化的数据结构，编码一个PB message，然后为message中的字段指明一个名字和类型即可。该“通讯簿”的.proto 文件addressbook.proto定义如下：
+
+[cpp] view plain copy
+
+    package tutorial;  
+    option java_package = "com.example.tutorial";  
+    option java_outer_classname = "AddressBookProtos";  
+    message Person {  
+      required string name = 1;  
+      required int32 id = 2;  
+      optional string email = 3;  
+      enum PhoneType {  
+        MOBILE = 0;  
+        HOME = 1;  
+        WORK = 2;  
+      }  
+      message PhoneNumber {  
+        required string number = 1;  
+        optional PhoneType type = 2 [default = HOME];  
+      }  
+      repeated PhoneNumber phone = 4;  
+    }  
+    message AddressBook {  
+      repeated Person person = 1;  
+    }  
+
+可以看到，语法非常类似Java或者C++，接下来，我们一条一条来过一遍每句话的含义：
+
+    .proto文件以一个package声明开始。该声明有助于避免不同项目建设的命名冲突。Java版的PB，在没有指明java_package的情况下，生成的类默认的package即为此package。这里我们生命的java_package，所以最终生成的类会位于com.example.tutorial package下。这里需要强调一下，即使指明了java_package，我们建议依旧定义.proto文件的package。
+    在package声明之后，紧接着是专门为java指定的两个选项：java_package 以及 java_outer_classname。java_package我们已经说过，不再赘述。java_outer_classname为生成类的名字，该类包含了所有在.proto中定义的类。如果该选项不显式指明的话，会按照驼峰规则，将.proto文件的名字作为该类名。例如“addressbook.proto”将会是“Addressbook”，“address_book.proto”即为“AddressBook”
+    java指定选项后边，即为message定义。每个message是一个包含了一系列指明了类型的字段的集合。这里的字段类型包含大多数的标准简单数据类型，包括bool，int32，float，double以及string。Message中也可以定义嵌套的message，例如“Person” message 包含“PhoneNumber” message。也可以将已定义的message作为新的数据类型，例如上例中，PhoneNumber类型在Person内部定义，但他是phone的type。在需要一个字段包含预先定义的一个列表的时候，也可以定义枚举类型，例如“PhoneType”。
+    我们注意到， 每一个message中的字段，都有“=1”，“=2”这样的标记，这可不是初始化赋值，该值是message中，该字段的唯一标示符，在二进制编码时候会用到。数字1~15的表示需求少于一个字节，所以在编码的时候，有这样一个优化，你可以用1~15标记最常使用或者重复字段元素(repeated elements)。用16或者更大的数字来标记不太常用的可选元素。再重复字段中，每一个元素都需重复编码标签数字，所以，该优化对重复字段最佳(repeat fileds)。
+
+message的没一个字段，都要用如下的三个修饰符(modifier)来声明：
+
+    required：必须赋值，不能为空，否则该条message会被认为是“uninitialized”。build一个“uninitialized” message会抛出一个RuntimeException异常，解析一条“uninitialized” message会抛出一条IOException异常。除此之外，“required”字段跟“optional”字段并无差别。
+    optional：字段可以赋值，也可以不赋值。假如没有赋值的话，会被赋上默认值。对于简单类型，默认值可以自己设定，例如上例的PhoneNumber中的PhoneType字段。如果没有自行设定，会被赋上一个系统默认值，数字类型会被赋为0，String类型会被赋为空字符串，bool类型会被赋为false。对于内置的message，默认值为该message的默认实例或者原型，即其内所有字段均为设置。当获取没有显式设置值的optional字段的值时，就会返回该字段的默认值。
+    repeated：该字段可以重复任意次数，包括0次。重复数据的顺序将会保存在protocol buffer中，将这个字段想象成一个可以自动设置size的数组就可以了。
+
+ Notice：应该格外小心定义Required字段。当因为某原因要把Required字段改为Optional字段是，会有问题，老版本读取器会认为消息中没有该字段不完整，可能会拒绝或者丢弃该字段(Google文档是这么说的，但是我试了一下，将required的改为optional的，再用原来required时候的解析代码去读，如果字段赋值的话，并不会出错，但是如果字段未赋值，会报这样错误：Exception in thread "main" com.google.protobuf.InvalidProtocolBufferException: Message missing required fields:fieldname)。在设计时，尽量将这种验证放在应用程序端的完成。Google的一些工程师对此也很困惑，他们觉得，required类型坏处大于好处，应该尽量仅适用optional或者repeated的。但也并不是所有的人都这么想。
+
+如果想深入学习.proto文件书写，可以参考Protocol Buffer Language Guide。但是不要妄想会有类似于类继承这样的机制，Protocol Buffers不做这个...
+4. 编译Protocol Buffers
+
+定义好.proto文件后，接下来，就是使用该文件，运行PB的编译器protoc，编译.proto文件，生成相关类，可以使用这些类读写“通讯簿”没得message。接下来我们要做：
+
+    如果你还没有安装PB编译器，到这里现在安装：download the package
+    安装后，运行protoc，结束后会发现在项目com.example.tutorial package下，生成了AddressBookProtos.java文件：
+
+[cpp] view plain copy
+
+    protoc -I=$SRC_DIR --java_out=$DST_DIR $SRC_DIR/addressbook.proto  
+    #for example  
+    protoc -I=G:\workspace\protobuf\message --java_out=G:\workspace\protobuf\src\main\java G:\workspace\protobuf\messages\addressbook.proto  
+
+    -I：指明应用程序的源码位置，假如不赋值，则有当前路径(说实话，该处我是直译了，并不明白是什么意思。我做了尝试，该值不能为空，如果为空，则提示赋了一个空文件夹，如果是当前路径，请用.代替，我用.代替，又提示不对。但是可以是任何一个路径，都运行正确，只要不为空)；
+    --java_out：指明目的路径，即生成代码输出路径。因为我们这里是基于java来说的，所以这里是--java_out，相对其他语言，设置为相对语言即可
+    最后一个参数即.proto文件
+
+Notice：此处运行完毕后，查看生成的代码，很有可能会出现一些类没有定义等错误，例如：com.google cannot be resolved to a type等。这是因为项目中缺少protocol buffers的相应library。在Protocol Buffers的源码包里，你会发现java/src/main/java，将这下边的文件拷贝到你的项目，大概可以解决问题。我只能说大概，因为当时我在弄得时候，也是刚学，各种出错，比较恶心。有一个简单的方法，呵呵，对于懒汉来说。创建一个maven的java项目，在pom.xml中，添加Protocol Buffers的依赖即可解决所有问题~在pom.xml中添加如下依赖(注意版本)：
+
+[cpp] view plain copy
+
+    <dependency>  
+        <groupId>com.google.protobuf</groupId>  
+        <artifactId>protobuf-java</artifactId>  
+        <version>2.5.0</version>  
+    </dependency>  
+
+ 5. Protocol Buffer Java API
+5.1 产生的类及方法
+
+接下来看一下PB编译器创建了那些类以及方法。首先会发现一个.java文件，其内部定义了一个AddressBookProtos类，即我们在addressbook.proto文件java_outer_classname 指定的。该类内部有一系列内部类，对应分别是我们在addressbook.proto中定义的message。每个类内部都有相应的Builder类，我们可以用它创建类的实例。生成的类及类内部的Builder类，均自动生成了获取message中字段的方法，不同的是，生成的类仅有getter方法，而生成类内部的Builder既有getter方法，又有setter方法。本例中Person类，其仅有getter方法，如图所示：
+
+ 但是Person.Builder类，既有getter方法，又有setter方法，如图：
+
+person.builder
+    person.builder
+
+从上边两张图可以看到：
+
+    每一个字段都有JavaBean风格的getter和setter
+    对于每一个简单类型变量，还对应都有一个has这样的一个方法，如果该字段被赋值了，则返回true，否则，返回false
+    对每一个变量，都有一个clear方法，用于置空字段
+
+对于repeated字段：
+
+repeated filed
+    repeated filed
+
+从图上看：
+
+    从person.builder图上看出，对于repeated字段，还有一个特殊的getter，即getPhoneCount方法，及repeated字段还有一个特殊的count方法
+    其getter和setter方法根据index获取或设置一个数据项
+    add()方法用于附加一个数据项
+    addAll()方法来直接增加一个容器中的所有数据项
+
+注意到一点：所有的这些方法均命名均符合驼峰规则，即使在.proto文件中是小写的。PB compiler生成的方法及字段等都是按照驼峰规则来产生，以符合基本的Java规范，当然，其他语言也尽量如此。所以，在proto文件中，命名最好使用用“_”来分割不同小写的单词。
+ 5.2 枚举及嵌套类
+
+从代码中可以发现，还产生了一个枚举：PhoneType，该枚举位于Person类内部：
+
+[cpp] view plain copy
+
+    public enum PhoneType  
+            implements com.google.protobuf.ProtocolMessageEnum {  
+          /** 
+           * <code>MOBILE = 0;</code> 
+           */  
+          MOBILE(0, 0),  
+          /** 
+           * <code>HOME = 1;</code> 
+           */  
+          HOME(1, 1),  
+          /** 
+           * <code>WORK = 2;</code> 
+           */  
+          WORK(2, 2),  
+          ;  
+          ...  
+    }  
+
+除此之外，如我们所预料，还有一个Person.PhoneNumber内部类，嵌套在Person类中，可以自行看一下生成代码，不再粘贴。
+
+5.3 Builders vs. Messages
+
+由PB compiler生成的消息类是不可变的。一旦一个消息对象构建出来，他就不再能够修改，就像java中的String一样。在构建一个message之前，首先要构建一个builder，然后使用builder的setter或者add()等方法为所需字段赋值，之后调用builder对象的build方法。
+
+在使用中会发现，这些构造message对象的builder的方法，都又会返回一个新的builder，事实上，该builder跟调用这个方法的builder是同一方法。这样做的目的，仅是为了方便而已，我们可以把所有的setter写在一行内。
+
+如下构造一个Person实例：
+
+[cpp] view plain copy
+
+    <span style="font-size:14px;">Person john = Person  
+            .newBuilder()  
+            .setId(1)  
+            .setName("john")  
+            .setEmail("john@youku.com")  
+            .addPhone(  
+                    PhoneNumber  
+                    .newBuilder()  
+                    .setNumber("1861xxxxxxx")  
+                    .setType(PhoneType.WORK)  
+                    .build()  
+            ).build();  
+    </span>  
+
+
+5.4 标准消息方法
+
+每一个消息类及Builder类，基本都包含一些公用方法，用来检查和维护这个message，包括：
+
+     isInitialized(): 检查是否所有的required字段是否被赋值
+    toString(): 返回一个便于阅读的message表示(本来是二进制的，不可读)，尤其在debug时候比较有用
+    mergeFrom(Message other): 仅builder有此方法，将其message的内容与此message合并，覆盖简单及重复字段
+    clear(): 仅builder有此方法，清空所有的字段
+
+5.5 解析及序列化
+
+对于每一个PB类，均提供了读写二进制数据的方法：
+
+    byte[] toByteArray();: 序列化message并且返回一个原始字节类型的字节数组
+    static Person parseFrom(byte[] data);: 将给定的字节数组解析为message
+    void writeTo(OutputStream output);: 将序列化后的message写入到输出流
+    static Person parseFrom(InputStream input);: 读入并且将输入流解析为一个message
+
+这里仅列出了几个解析及序列化方法，完整列表，可以参见：Message API reference
+6. 使用PB生成类写入
+
+接下来使用这些生成的PB类，初始化一些联系人，并将其写入一个文件中。
+
+下面的程序首先从一个文件中读取一个通讯簿(AddressBook)，然后添加一个新的联系人，再将新的通讯簿写回到文件。
+
+[cpp] view plain copy
+
+    package com.example.tutorial;  
+    import com.example.tutorial.AddressBookProtos.AddressBook;  
+    import com.example.tutorial.AddressBookProtos.Person;  
+    import java.io.BufferedReader;  
+    import java.io.FileInputStream;  
+    import java.io.FileNotFoundException;  
+    import java.io.FileOutputStream;  
+    import java.io.InputStreamReader;  
+    import java.io.IOException;  
+    import java.io.PrintStream;  
+      
+    class AddPerson {  
+        // This function fills in a Person message based on user input.  
+        static Person PromptForAddress(BufferedReader stdin, PrintStream stdout)  
+                throws IOException {  
+            Person.Builder person = Person.newBuilder();  
+            stdout.print("Enter person ID: ");  
+            person.setId(Integer.valueOf(stdin.readLine()));  
+            stdout.print("Enter name: ");  
+            person.setName(stdin.readLine());  
+            stdout.print("Enter email address (blank for none): ");  
+            String email = stdin.readLine();  
+            if (email.length() > 0) {  
+                person.setEmail(email);  
+            }  
+            while (true) {  
+                stdout.print("Enter a phone number (or leave blank to finish): ");  
+                String number = stdin.readLine();  
+                if (number.length() == 0) {  
+                    break;  
+                }  
+                Person.PhoneNumber.Builder phoneNumber = Person.PhoneNumber  
+                        .newBuilder().setNumber(number);  
+                stdout.print("Is this a mobile, home, or work phone? ");  
+                String type = stdin.readLine();  
+                if (type.equals("mobile")) {  
+                    phoneNumber.setType(Person.PhoneType.MOBILE);  
+                } else if (type.equals("home")) {  
+                    phoneNumber.setType(Person.PhoneType.HOME);  
+                } else if (type.equals("work")) {  
+                    phoneNumber.setType(Person.PhoneType.WORK);  
+                } else {  
+                    stdout.println("Unknown phone type.  Using default.");  
+                }  
+                person.addPhone(phoneNumber);  
+            }  
+            return person.build();  
+        }  
+      
+        // Main function: Reads the entire address book from a file,  
+        // adds one person based on user input, then writes it back out to the same  
+        // file.  
+        public static void main(String[] args) throws Exception {  
+            if (args.length != 1) {  
+                System.err.println("Usage:  AddPerson ADDRESS_BOOK_FILE");  
+                System.exit(-1);  
+            }  
+      
+            AddressBook.Builder addressBook = AddressBook.newBuilder();  
+      
+            // Read the existing address book.  
+            try {  
+                addressBook.mergeFrom(new FileInputStream(args[0]));  
+            } catch (FileNotFoundException e) {  
+                System.out.println(args[0]  
+                        + ": File not found.  Creating a new file.");  
+            }  
+            // Add an address.  
+            addressBook.addPerson(PromptForAddress(new BufferedReader(  
+                    new InputStreamReader(System.in)), System.out));  
+      
+            // Write the new address book back to disk.  
+            FileOutputStream output = new FileOutputStream(args[0]);  
+            addressBook.build().writeTo(output);  
+            output.close();  
+        }  
+    }  
+
+7. 使用PB生成类读取
+
+运行第六部分程序，写入几个联系人到文件中，接下来，我们就要读取联系人。程序入下：
+
+[cpp] view plain copy
+
+    package com.example.tutorial;  
+    import java.io.FileInputStream;  
+    import com.example.tutorial.AddressBookProtos.AddressBook;  
+    import com.example.tutorial.AddressBookProtos.Person;  
+    class ListPeople {  
+      // Iterates though all people in the AddressBook and prints info about them.  
+      static void Print(AddressBook addressBook) {  
+        for (Person person: addressBook.getPersonList()) {  
+          System.out.println("Person ID: " + person.getId());  
+          System.out.println("  Name: " + person.getName());  
+          if (person.hasEmail()) {  
+            System.out.println("  E-mail address: " + person.getEmail());  
+          }  
+      
+          for (Person.PhoneNumber phoneNumber : person.getPhoneList()) {  
+            switch (phoneNumber.getType()) {  
+              case MOBILE:  
+                System.out.print("  Mobile phone #: ");  
+                break;  
+              case HOME:  
+                System.out.print("  Home phone #: ");  
+                break;  
+              case WORK:  
+                System.out.print("  Work phone #: ");  
+                break;  
+            }  
+            System.out.println(phoneNumber.getNumber());  
+          }  
+        }  
+      }  
+      
+      // Main function:  Reads the entire address book from a file and prints all  
+      //   the information inside.  
+      public static void main(String[] args) throws Exception {  
+        if (args.length != 1) {  
+          System.err.println("Usage:  ListPeople ADDRESS_BOOK_FILE");  
+          System.exit(-1);  
+        }  
+      
+        // Read the existing address book.  
+        AddressBook addressBook =  
+          AddressBook.parseFrom(new FileInputStream(args[0]));  
+      
+        Print(addressBook);  
+      }  
+    }  
+
+至此我们已经可以使用生成类写入和读取PB message。
+
+8. 拓展PB
+
+当产品发布后，迟早有一天我们需要改善我们的PB定义。如果要做到新的PB能够向后兼容，同时老的PB又能够向前兼容，我们必须遵守如下规则：
+
+    千万不要修改现有字段后边的数值标签
+    千万不要增加或者删除required字段
+    可以删除optional或者repeated字段
+    可以添加新的optional或者repeated字段，但是必须使用新的数字标签(该数字标签必须从未在该PB中使用过，包括已经删除字段的数字标签)
+
+如果违反了这些规则，会有一些相应的异常，可参见some exceptions，但是这些异常，很少很少会被用到。
+
+遵守这些规则，老的代码可以正确的读取新的message，但是会忽略新的字段；对于删掉的optional的字段，老代码会使用他们的默认值；对于删除的repeated字段，则把他们置为空。
+
+新的代码也将能够透明的读取老的messages。但是必须注意，新的optional字段在老的message中是不存在的，必须显式的使用has_方法来判断其是否设置了，或者在.proto 文件中以[default = value]形式提供默认值。如果没有指定默认值的话，会按照类型默认值赋值。对于string类型，默认值是空字符串。对于bool来说，默认值是false。对于数字类型，默认值是0。
+9. 高级用法
+
+Protocol Buffers的应用远远不止简单的存取以及序列化。如果想了解更多用法，可以去研究Java API reference。
+
+Protocol Message Class提供了一个重要特性：反射。不需要再写任何特殊的message类型就可以遍历一条message的所有字段以及操作字段的值。反射的一个非常重要的应用是可以将PBmessage与其他的编码语言进行转化，例如与XML或者JSON之间。
+
+反射另外一个更加高级的应用应该是两个同一类型message的之间的不同，或者开发一种可以成为“Protocol Buffers 正则表达式”的应用，使用它，可以编写符合一定消息内容的表达式。
+
+除此之外，开动脑筋，你会发现，Protocol Buffers能解决远远超过你刚开始对他的期待。
+
+===========================================================================================================
+
+《Protocol Buffers 语法指南》
+1. 概述
+
+前两篇文章，我们概括介绍《Google Protocol Buffers 概述》以及带领大家简单的《Google Protocol Buffers 入门》，接下来，再稍微详细一点介绍Protocol Buffers书写语言。该篇文章主要讲解如何使用PB语言构建数据，包括.proto文件语法及如果使用.proto文件生成数据存取类。
+
+本篇主要包括：
+
+    定义一个PB message类型
+    介绍PB 数据类型
+    Optional字段及其默认值
+    枚举类型
+    使用其他Message类型作为filed类型
+    嵌套类型
+    更新Message
+
+2. 定义一个PB message类型
+
+假如现在需要定义搜索请求的message格式，每条message包含三个字段：搜索语句(query string)，需要的返回结果页数(page_number)，以及该页上的结果数。可如下定义.proto文件。
+
+	
+[cpp] view plain copy
+
+    message SearchRequest {  
+      
+      required string query = 1;  
+      
+      optional int32 page_number = 2;  
+      
+      optional int32 result_per_page = 3;  
+      
+    }  
+
+该message定义声明三个字段(name/value pairs)，每个字段有一个名字和类型。
+ 2.1 声明字段类型
+
+上例中，所有的字段类型均为标准类型：两个整型和一个字符串类型。当然，也可以指定复合类型：枚举类型和其他自定义message类型。
+2.2 给字段赋值数字标签
+
+从上例中可以发现，message中定义的每个字段都有一个唯一的数字标签。该标签的作用是在二进制message中唯一标示该字段，一旦定义该字 段的值就不能够再更改。有一点需要强调：1~15的数字标签编码后仅占一个字节(byte)，包括数字标签和字段类型。16~2047的数字标签占两个字 节(byte)。因此，1~15的数字标签应该用于最频繁出现的元素。设计时要考虑到不要一次用完1~15的标签，要考虑到将来也可能出现频繁出现的元 素。
+
+最小的数字标签是1，最大的数字标签是2的29次方-1，也即 536,870,911。但是并不是这之间所有的数字标签你都能用，例如 19000~19999。这个区间的数字标签就像是java中的保留字一样，他们是PB的保留数字标签。如果该区间的数字标签出现在.proto文件 中，PB编译器会出错。
+2.3 字段标示符
+
+字段标示符有三个：
+
+message的没一个字段，都要用如下的三个修饰符(modifier)来声明：
+
+    required：必须赋值，不能为空，否则该条message会被认为是“uninitialized”。build一个 “uninitialized” message会抛出一个RuntimeException异常，解析一条“uninitialized” message会抛出一条IOException异常。除此之外，“required”字段跟“optional”字段并无差别。
+    optional：字段可以赋值，也可以不赋值。假如没有赋值的话，会被赋上默认值。对于简单类型，默认值可以自己设定，例如上例的 PhoneNumber中的PhoneType字段。如果没有自行设定，会被赋上一个系统默认值，数字类型会被赋为0，String类型会被赋为空字符 串，bool类型会被赋为false。对于内置的message，默认值为该message的默认实例或者原型，即其内所有字段均为设置。当获取没有显式 设置值的optional字段的值时，就会返回该字段的默认值。
+    repeated：该字段可以重复任意次数，包括0次。重复数据的顺序将会保存在protocol buffer中，将这个字段想象成一个可以自动设置size的数组就可以了。
+
+由于一些历史原因，数字类型的repeated字段性能有些不尽人意，但是，PB已经做了改进，但是需要再添加一点改动，即在声明后添加[packed=true]例如：
+
+	
+[cpp] view plain copy
+
+    <span style="font-family:Microsoft YaHei;font-size:14px;">repeated int32 samples = 4 [packed=true];  
+    </span>  
+
+Notice：应该格外小心定义Required字段。当因为某原因要把Required字段改为 Optional字段是，会有问题，老版本读取器会认为消息中没有该字段不完整，可能会拒绝或者丢弃该字段(Google文档是这么说的，但是我试了一 下，将required的改为optional的，再用原来required时候的解析代码去读，如果字段赋值的话，并不会出错，但是如果字段未赋值，会 报这样错误：Exception in thread “main” com.google.protobuf.InvalidProtocolBufferException: Message missing required fields:fieldname)。在设计时，尽量将这种验证放在应用程序端的完成。Google的一些工程师对此也很困惑，他们觉 得，required类型坏处大于好处，应该尽量仅适用optional或者repeated的。但也并不是所有的人都这么想。
+2.4 同一.proto文件定义多个message
+
+PB支持同一.proto文件定义多个message。这在需要定义相关message的时候非常有用，例如：除了搜索请求message，还需要定义搜索响应message，可以再同一.proto文件中定义：
+  	
+[cpp] view plain copy
+
+    message SearchRequest {  
+    required string query = 1;  
+    optional int32 page_number = 2;  
+    optional int32 result_per_page = 3;  
+    }  
+    message SearchResponse {  
+    ...  
+    }  
+
+2.5 添加评论
+
+使用C/C++风格的注释 // syntax，如下例子：
+
+	
+[cpp] view plain copy
+
+    message SearchRequest {  
+    required string query = 1;  
+    optional int32 page_number = 2;// Which page number do we want?  
+    optional int32 result_per_page = 3;// Number of results to return per page.  
+    }  
+
+2.6 编译.proto文件后产生了什么？
+
+用PB 编译器运行.proto文件后，会按照定义的格式，生成指定语言的一系列代买，这些代码的功能包括：字段值的getter，setter，序列化message并写入到输出流，从输入流接写成message等。
+
+对于Java，编译器生成一个.java文件，该java文件内包含几个内部类，分别对应.proto文件中定义的message 类型，以及将来用于创建message类实例的Builder类。
+3. 标准值类型
+.proto Type 	Notes 	C++ Type 	Java Type 	Python Type[2]
+double 	
+	double 	double 	float
+float 	
+	float 	float 	float
+int32 	使用可变长编码. 对于负数比较低效，如果负数较多，请使用sint32 	int32 	int 	int
+int64 	使用可变长编码. 对于负数比较低效，如果负数较多，请使用sint64 	int64 	long 	int/long
+uint32 	使用可变长编码 	uint32 	int
+	int/long
+uint64 	使用可变长编码 	uint64 	long
+	int/long
+sint32 	使用可变长编码. Signed int value. 编码负数比int32更高效 	int32 	int 	int
+sint64 	使用可变长编码. Signed int value. 编码负数比int64更高效 	int64 	long 	int/long
+fixed32 	恒定四个字节。如果数值几乎总是大于2的28次方，该类型比unit32更高效。 	uint32 	int
+	int
+fixed64 	恒定四个字节。如果数值几乎总是大于2的56次方，该类型比unit64更高效。 	uint64 	long
+	int/long
+sfixed32 	恒定四个字节 	int32 	int 	int
+sfixed64 	恒定八个字节 	int64 	long 	int/long
+bool 	
+	bool 	boolean 	boolean
+string 	A string must always contain UTF-8 encoded or 7-bit ASCII text. 	string 	String 	str/unicode
+bytes 	包含任意数量顺序的字节 	string 	ByteString 	str
+4. Optional字段及其默认值
+
+上面提到，PB允许设置可选字段(optional)。顾名思义，在一条message中，该字段可设值也可不设。假如没有设置，那么在解析该字段 的时候，会根据该字段类型，给其赋一个类型默认值。除此之外，也可以在定义message格式的时候，就为optional字段设置一个默认值，如下：
+
+	
+[cpp] view plain copy
+
+    <span style="font-family:Microsoft YaHei;font-size:14px;">optional int32 result_per_page = 3 [default = 10];  
+    </span>  
+
+假如没有赋值的话，会被赋上默认值。对于简单类型，默认值可以自己设定，例如上例的PhoneNumber中的PhoneType字段。如果没有自 行设定，会被赋上一个系统默认值，数字类型会被赋为0，String类型会被赋为空字符串，bool类型会被赋为false。对于枚举类型，默认值是枚举 列表中第一个值。
+5. 枚举类型
+
+在定义message类型的时候，也许会有这样一种需求：其中的一个字段仅需要包含预定义的若干个值即可。比如，对于每一个搜索请求，现需要增加一 个分类字段，分类包含：UNIVERSAL, WEB, IMAGES, LOCAL, NEWS, PRODUCTS or VIDEO。要实现该功能，仅需要增加一个枚举类型字段。如下：
+[cpp] view plain copy
+
+    message SearchRequest {  
+        required string query = 1;  
+        optional int32 page_number = 2;  
+        optional int32 result_per_page = 3 [default = 10];  
+        enum Corpus {  
+           UNIVERSAL = 0;  
+           WEB = 1;  
+           IMAGES = 2;  
+           LOCAL = 3;  
+           NEWS = 4;  
+           PRODUCTS = 5;  
+           VIDEO = 6;  
+        }  
+        optional Corpus corpus = 4 [default = UNIVERSAL];  
+    }  
+
+还可以给枚举值设置别名，仅需将相同的数字标签设置给不同的名称即可。这里，必须得设置allow_alias为true，否则PB编译器会报错。
+[cpp] view plain copy
+
+    enum EnumAllowingAlias {  
+        option allow_alias = true;  
+        UNKNOWN = 0;  
+        STARTED = 1;  
+        RUNNING = 1;  
+    }  
+    enum EnumNotAllowingAlias {  
+        UNKNOWN = 0;  
+        STARTED = 1;  
+        // RUNNING = 1; // Uncommenting this line will cause a compile error inside Google and a warning message outside.  
+    }  
+
+可以定义枚举在一个message内部，如上例。也可以定义在message的外部，这样的枚举可以被其他任何.proto文件内的message复用。
+6. 使用其他Message类型作为filed类型
+
+PB允许使用message类型作为filed类型。例如，在搜索相应message中，包含一个结果message。此时，只需要定义一个结果 message，然后再.proto文件中，在搜索结果message中新增一个字段，该字段的类型设置为结果message即可。如下：
+
+	
+[cpp] view plain copy
+
+    message SearchResponse {  
+        repeated Result result = 1;  
+    }  
+    message Result {  
+        required string url = 1;  
+        optional string title = 2;  
+        repeated string snippets = 3;  
+    }  
+
+6.1 导入定义
+
+在上例中，Result message类型与SearchResponse 定义在同一个文件中，假如有这么一种情况，这里所要使用的Resultmessage已经在其他的.proto文件中定义了呢？
+
+可以通过导入其他.proto文件来使用其内的定义。为达此目的，需要在现.proto文件前增加一条import语句：
+[cpp] view plain copy
+
+    import "myproject/other_protos.proto";  
+
+	
+
+7. 嵌套类型
+
+PB支持message内嵌套message，如下例子中，Result message 定义在了SearchResponse内：
+[cpp] view plain copy
+
+    message SearchResponse {  
+      message Result {  
+        required string url = 1;  
+        optional string title = 2;  
+        repeated string snippets = 3;  
+      }  
+      repeated Result result = 1;  
+    }  
+
+[cpp] view plain copy
+
+    如果想要在父Message外复用该message的话，可以用Parent.Type格式来引用。  
+
+[cpp] view plain copy
+
+    message SomeOtherMessage {  
+      optional SearchResponse.Result result = 1;  
+    }  
+
+PB支持无限深层次的message嵌套：
+
+	
+[cpp] view plain copy
+
+    message Outer {                  // Level 0  
+      message MiddleAA {  // Level 1  
+        message Inner {   // Level 2  
+          required int64 ival = 1;  
+          optional bool  booly = 2;  
+        }  
+      }  
+      message MiddleBB {  // Level 1  
+        message Inner {   // Level 2  
+          required int32 ival = 1;  
+          optional bool  booly = 2;  
+        }  
+      }  
+    }  
+
+8. 更新Message类型
+
+如果现有message类型不能在满足业务需求，例如，需要新增一个字段，但是我们却希望依然能够使用原来的.proto生成的代码。完全没有问题，仅需记住如下规则：
+
+    千万不要修改现有字段后边的数值标签
+    只能新增optional或者repeated字段
+    可以删除非必须字段，但是他们的数字标签不能再被使用。最好的方法是不删除，而是修改名字，比如在前缀上加OBSOLETE_，这样就可以避免后人尽量少的出错。
+    非required字段可以转化成extension字段，反之亦然，同时保留原类型和数字标签
+    int32, uint32, int64, uint64, 和bool是兼容的。即这些字段可以相互切换，在代码处理的时候，不会出错，但是小心范围小的数据接收范围大的数据会发生截断
+    sint32, sint64是相互兼容的，但是不与其他整型类型兼容
+    string和bytes是兼容的，因为bytes也是合法的UTF-8
+    Embedded messages are compatible with bytes if the bytes contain an encoded version of the message(不知道怎么翻译了)
+    fixed32与 sfixed32兼容， fixed64 与sfixed64兼容
+    optional与repeated兼容，也存在数据截断，假如讲一个repeated的序列化后的数据作为输入给客户端，客户端会截取最后一个原子类型的字节。或者，如果是一个message类型的字段的话，合并所有的元素。
+    可以修改字段默认值
+
+ 9. Package
+
+PB建议在.proto文件开头添加一个package说明符来避免不同message类型的名字冲突：
+[cpp] view plain copy
+
+    package foo.bar;  
+    message Open { ... }  
+
+这样，就可以使用该package标示符来定义该message类型的字段：
+[cpp] view plain copy
+
+    message Foo {  
+        ...  
+        required foo.bar.Open open = 1;  
+        ...  
+    }  
+
+不同语言，因为添加package标示符，生成的代码也会有所不同，Java中，该package将会被用作java文件的package。如果不想这样的话，也可在.proto文件中显式指明package，该字段是：java_package。
+===========================================================================================================
+《Google Protocol Buffers 编码(Encoding)》
+1. 概述
+
+前三篇文章《Google Protocol Buffers 概述》《Google Protocol Buffers 入门》《Protocol Buffers 语法指南》 一步一步将大家带入Protocol Buffers的世界，我们已经基本能够使用Protocol Buffers生成代码，编码，解析，输出级读入序列化数据。该篇主要讲述PB message的底层二进制格式。不了解该部分内容，并不影响我们在项目中使用Protocol Buffers，但是了解一下PB格式是如何做到smaller这一层，确实是很有必要的。Protobuf 序列化后所生成的二进制消息非常紧凑，这得益于 Protobuf 采用的非常巧妙的 Encoding 方法。
+2. 一个简单的例子
+
+.proto文件定义一条简单的message：
+
+[cpp] view plain copy
+
+    message Test1 {  
+      required int32 a = 1;  
+    }  
+
+使用该.proto生成相应类并写入一条message到一个文件中，这里我写入test.txt文件：
+
+[cpp] view plain copy
+
+    public static void main(String[] args) throws IOException {  
+        Simple simple = Simple.newBuilder().setId(150).build();  
+        FileOutputStream output = new FileOutputStream("abc.txt");  
+        simple.writeTo(output);  
+        output.close();  
+    }  
+
+使用UltraEdit打开，二进制格式查看，发现只占用了三个字节：
+
+bytes of pb message
+
+整条message存储只用了三个字节，甚至小于一个整形的大小，这是什么意思？怎么做到的？Protobuf 序列化后所生成的二进制消息非常紧凑，这得益于 Protobuf 采用的非常巧妙的 Encoding 方法。
+3. Varint
+
+在了解PB encoding之前，我们先来了解一下varint。Varint 是一种紧凑的表示数字的方法。它用一个或多个字节来表示一个数字，值越小的数字使用越少的字节数。这能减少用来表示数字的字节数。
+
+Varint 中的每个 byte 的最高位 bit 有特殊的含义，如果该位为 1，表示后续的 byte 也是该数字的一部分，如果该位为 0，则结束。其他的 7 个 bit 都用来表示数字。因此小于 128 的数字都可以用一个 byte 表示。大于 128 的数字，会用两个字节。
+
+例如整数1的表示，仅需一个字节：
+
+0000 0001
+
+例如300的表示，需要两个字节：
+
+1010 1100 0000 0010
+
+采 用 Varint，对于很小的 int32 类型的数字，则可以用 1 个 byte 来表示。当然凡事都有好的也有不好的一面，采用 Varint 表示法，大的数字则需要 5 个 byte 来表示。从统计的角度来说，一般不会所有的消息中的数字都是大数，因此大多数情况下，采用 Varint 后，可以用更少的字节数来表示数字信息。
+
+下图演示了 Google Protocol Buffer 如何解析两个 bytes。注意到最终计算前将两个 byte 的位置相互交换过一次，这是因为 Google Protocol Buffer 字节序采用 little-endian 的方式。
+
+PB Varint
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+4. Message 格式
+
+消息经过序列化后会成为一个二进制数据流，该流中的数据为一系列的 Key-Value 对。如下图所示：
+
+Message Buffer
+
+采用这种 Key-Pair 结构无需使用分隔符来分割不同的 Field。对于可选的 Field，如果消息中不存在该 field，那么在最终的 Message Buffer 中就没有该 field，这些特性都有助于节约消息本身的大小。
+
+二进制格式的message使用数字标签作为key，Key 用来标识具体的 field，在解包的时候，Protocol Buffer 根据 Key 就可以知道相应的 Value 应该对应于消息中的哪一个 field。
+
+将 message编码后，key-values被编码成字节流存储。在message解码时，PB 解析器会跳过(忽略)不能够识别的字段，所以，message即使增加新的字段，也不会影响老程序代码，因为老程序代码根本就不能识别这些新添加的字段。 为此，该处，key需要特殊设计。
+
+上边我们说，“二进制格式的message使用数字标签作为key”，此处的数字标签，并非单纯的数字标签，而是数字标签与传输类型的组合，根据传输类型能够确定出值的长度。
+
+key的定义：
+
+(field_number << 3) | wire_type
+
+可以看到 Key 由两部分组成。第一部分是 field_number，第二部分为 wire_type。表示 Value 的传输类型。也就是说，key中的后三位，是值得传输类型。有关移位操作简单知识，可以参见：Java位操作基本知识
+
+Wire Type 可能的类型如下表所示：
+Type 	Meaning 	Used For
+0 	Varint 	int32, int64, uint32, uint64, sint32, sint64, bool, enum
+1 	64-bit 	fixed64, sfixed64, double
+2 	Length-delimi 	string, bytes, embedded messages, packed repeated fields
+3 	Start group 	Groups (deprecated)
+4 	End group 	Groups (deprecated)
+5 	32-bit 	fixed32, sfixed32, float
+5. 分析产生数据
+
+在第二部分简单的例子中，写入message后，我们看到最终输出文件中包含三个数字：08 96 01，这是如何得来的呢？
+
+如图：
+
+至此我们知道数字标签是1，值类型为varint。使用第四部分我们分析的，来解码96 01，即为150：
+
+[cpp] view plain copy
+
+    96 01 = 1001 0110  0000 0001  
+      
+           → 000 0001  ++  001 0110 (drop the msb and reverse the groups of 7 bits)  
+      
+           → 10010110  
+      
+           → 2 + 4 + 16 + 128 = 150  
+
+注意：数值部分，低位在前，高位在后。
+6. 其他数值类型
+6.1 有符号整数
+
+细 心的读者或许会看到在 Type 0 所能表示的数据类型中有 int32 和 sint32 这两个非常类似的数据类型。Google Protocol Buffer 区别它们的主要意图也是为了减少 encoding 后的字节数。这部分，主要是针对负数来设计的。
+
+在计 算机内，一个负数一般会被表示为一个很大的整数，因为计算机定义负数的符号位为数字的最高位。如果采用 Varint 表示一个负数，那么一定需要 10 个 byte长度。为此 Google Protocol Buffer 定义了 sint32 这种类型，采用 zigzag 编码。将所有整数映射成无符号整数，然后再采用varint编码方式编码，这样，绝对值小的整数，编码后也会有一个较小的varint编码值。
+
+Zigzag映射函数为：
+
+Zigzag(n) = (n << 1) ^ (n >> 31), n为sint32时
+
+Zigzag(n) = (n << 1) ^ (n >> 63), n为sint64时
+
+按照这种方法，-1将会被编码成1，1将会被编码成2，-2会被编码成3，如下表所示：
+Signed Original 	Encoded As
+0 	0
+-1 	1
+1 	2
+-2 	3
+2 	4
+-3 	5
+… 	…
+2147483647 	4294967294
+-2147483648 	4294967295
+6.2 Non-varint 数字
+
+Non-varint数字比较简单，double 、fixed64 的线路类型为 1，在解析式告诉解析器，该类型的数据需要一个64位大小的数据块即可。同理，float和fixed32的线路类型为5，给其32位数据块即可。两种情况下，都是高位在后，低位在前。
+6.3 String
+
+线路类型为2的数据，是一种指定长度的编码方式：key+length+content，key的编码方式是统一的，length采用varints编码方式，content就是由length指定长度的Bytes。定义如下的message格式：
+
+[cpp] view plain copy
+
+    message Test2 {  
+    required string b = 2;  
+    }  
+
+设置该值为"testing"，二进制格式查看：
+
+12 07 74 65 73 74 69 6e 67
+
+红色字节为“testing”的UTF8代码。
+
+此处，key是16进制表示的，所以展开是：
+
+12 -> 0001 0010，后三位010为wire type = 2，0001 0010右移三位为0000 0010，即tag=2。
+
+length此处为7，后边跟着7个bytes，即我们的字符创"testing"。
+6.4 嵌套message
+
+定义如下嵌套消息：
+
+[cpp] view plain copy
+
+    message Test3 {  
+      required Test1 c = 3;  
+    }  
+
+同第二部分一样，设置字段为整数150，编码后的字节为：
+
+1a 03 <span style="color: red;">08 96 01</span>
+
+我们发现，后三个字节跟我们第一个例子中的一摸一样(08 96 01)，他们前边有一个长度限制03，课件嵌套消息跟string是一摸一样的，其wire type 也为2。
+
+6.5 wire type = 3、4
+
+该两个字段已经废弃不再使用，故忽略吧~
+7. 可选字段和重复字段
+
+假 如定义的message中有repeated元素并且该声明后并未使用[packed=true]选项，编码后的message有一个或者多个包含相同 tag数字的key-value对。这些重复的value不需要连续的出现；他们可能与其他的字段间隔的出现。尽管他们是无序的，但是在解析时，他们是需 要有序的。
+
+对于可选字段，编码后的message中，拥有该数字标签的key-value对可有可无。
+
+通常，编码后的 message，其required字段和optional字段最多只有一个实例。但是解析器却需要处理多余一个的情况。对于数字类型和string类 型，如果同一值出现多次，解析器接受最后一个它收到的值。对于内嵌字段，解析器合并(merge)它接收到的同一字段的多个实例。就如MergeFrom 方法一样，所有单数的字段，后来的会替换先前的，所有单数的内嵌message都会被合并(merge)，所有的repeated字段，都会串联起来。这 样的规则的结果是，解析两个串联的编码后的message，与分别解析两个message然后merge，结果是一样的。例如：
+
+[cpp] view plain copy
+
+    MyMessage message;  
+    message.ParseFromString(str1 + str2);  
+
+这种做法，等价于：
+
+[cpp] view plain copy
+
+    MyMessage message, message2;  
+    message.ParseFromString(str1);  
+    message2.ParseFromString(str2);  
+    message.MergeFrom(message2);  
+
+这种方法有时是非常有用的。比如，即使不知道message的类型，也能够将其合并。
+7.1 设置了[packed = true]的repeated字段
+
+在 2.1.0后，PB引入了该种类型，其与repeated字段一样，只是在末尾声明了[packed=true]。类似repeated字段却又不同。对 于packed repeated字段，如果message中没有赋值，则不会出现在编码后的数据中。否则的话，该字段所有的元素会被打包到单一一个key-value对 中，且它的wire type=2，长度确定。每个元素正常编码，只不过其前没有标签。例如有如下message类型：
+
+[cpp] view plain copy
+
+    message Test4 {  
+        repeated int32 d = 4 [packed=true];  
+    }  
+
+构造一个Test4字段，并且设置repeated字段d两个值：3、270和86942，编码后：
+
+[cpp] view plain copy
+
+    22 // tag 0010 0010(field number 010 0 = 4, wire type 010 = 2)  
+    06 // payload size (设置的length = 6 bytes)  
+    03 // first element (varint 3)  
+    8E 02 // second element (varint 270)  
+    9E A7 05 // third element (varint 86942)  
+
+仅有原子数字类型(varint, 32-bit, or 64-bit)可以被声明为“packed”
+
+有一点需要注意，对于packed的repeated字段，尽管通常没有理由将其编码为多个key-value对，编码器必须有接收多个key-pair对的准备。这种情况下，payload 必须是串联的，每个pair必须包含完整的元素。
+8. 字段顺序
+
+简单来说只有两点：
+
+    编码/解码与字段顺序无关，这一点由key-value机制就能保证
+    对于未知的字段，编码的时候会把它写在序列化完的已知字段后面。﻿﻿
+

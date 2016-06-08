@@ -1,0 +1,164 @@
+
+经过前面“caffe的protocol buffer使用例子”的学习，对caffe.proto熟悉了。
+看caffe源码先从这里开始吧。
+它位于…\src\caffe\proto目录下，在这个文件夹下还有一个.pb.cc和一个.pb.h文件，这两个文件都是由caffe.proto编译而来的。
+在caffe.proto中定义了很多结构化数据，包括：
+
+    BlobProto
+    Datum
+    FillerParameter
+    NetParameter
+    SolverParameter
+    SolverState
+    LayerParameter
+    ConcatParameter
+    ConvolutionParameter
+    DataParameter
+    DropoutParameter
+    HDF5DataParameter
+    HDF5OutputParameter
+    ImageDataParameter
+    InfogainLossParameter
+    InnerProductParameter
+    LRNParameter
+    MemoryDataParameter
+    PoolingParameter
+    PowerParameter
+    WindowDataParameter
+    V0LayerParameter
+
+从caffe.proto编译而来的，无非就是一些关于这些数据结构（类）的标准化操作，比如：
+  void CopyFrom();//在ByteString中定义实现ByteString和字节数组/字符串互相转换函数
+  void MergeFrom();//用于合并
+  void Clear();
+  bool IsInitialized() const;
+  int ByteSize() const;
+
+  bool MergePartialFromCodedStream();//解码时可以调用C++接口ParseFromArray，编码时可以先调用C++接口ByteSize预先获得编码后的数据大小，让后动态分配内存后调用SerializeToArray进行编码即可。
+
+  void SerializeWithCachedSizes() const;//序列化打包
+  SerializeWithCachedSizesToArray() const;
+  int GetCachedSize()//打包后出来的大小
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize() const;
+
+[cpp] view plain copy
+
+    <0> BlobProto  
+    message BlobProto {//blob的属性以及blob中的数据(data\diff)  
+      
+      optional int32 num = 1 [default = 0];  
+      optional int32 channels = 2 [default = 0];  
+      optional int32 height = 3 [default = 0];  
+      optional int32 width = 4 [default = 0];  
+      
+      repeated float data = 5 [packed = true];//存放数据，指向SyncedMemory的智能指针  
+      repeated fl  
+    oat diff = 6 [packed = true];//存放梯度  
+    }  
+    <1> Datum  
+      message Datum {  
+      optional int32 channels = 1;  
+      optional int32 height = 2;  
+      optional int32 width = 3;  
+      optional bytes data = 4;//真实的图像数据，以字节存储(bytes)  
+      optional int32 label = 5;  
+      repeated float float_data = 6;//datum也能存float类型的数据(float)  
+    }  
+    <2> LayerParameter  
+    message LayerParameter {  
+      repeated string bottom = 2; //输入的blob的名字(string)  
+      repeated string top = 3; //输出的blob的名字(string)  
+      optional string name = 4; //层的名字  
+      enum LayerType { //层的枚举（enum，和c++中的enum一样）  
+        NONE = 0;  
+        ACCURACY = 1;  
+        BNLL = 2;  
+        CONCAT = 3;  
+        CONVOLUTION = 4;  
+        DATA = 5;  
+        DROPOUT = 6;  
+        EUCLIDEAN_LOSS = 7;  
+        ELTWISE_PRODUCT = 25;  
+        FLATTEN = 8;  
+        HDF5_DATA = 9;  
+        HDF5_OUTPUT = 10;  
+        HINGE_LOSS = 28;  
+        IM2COL = 11;  
+        IMAGE_DATA = 12;  
+        INFOGAIN_LOSS = 13;  
+        INNER_PRODUCT = 14;  
+        LRN = 15;  
+        MEMORY_DATA = 29;  
+        MULTINOMIAL_LOGISTIC_LOSS = 16;  
+        POOLING = 17;  
+        POWER = 26;  
+        RELU = 18;  
+        SIGMOID = 19;  
+        SIGMOID_CROSS_ENTROPY_LOSS = 27;  
+        SOFTMAX = 20;  
+        SOFTMAX_LOSS = 21;  
+        SPLIT = 22;  
+        TANH = 23;  
+        WINDOW_DATA = 24;  
+      }  
+      optional LayerType type = 5; // 层的类型  
+      repeated BlobProto blobs = 6; //blobs的数值参数  
+      repeated float blobs_lr = 7; //学习速率(repeated)，如果你想设置一个blob的学习速率，你需要设置所有blob的学习速率。  
+      repeated float weight_decay = 8; //权值衰减(repeated)  
+      
+      // 相对于某一特定层的参数(optional)  
+      optional ConcatParameter concat_param = 9;  
+      optional ConvolutionParameter convolution_param = 10;  
+      optional DataParameter data_param = 11;  
+      optional DropoutParameter dropout_param = 12;  
+      optional HDF5DataParameter hdf5_data_param = 13;  
+      optional HDF5OutputParameter hdf5_output_param = 14;  
+      optional ImageDataParameter image_data_param = 15;  
+      optional InfogainLossParameter infogain_loss_param = 16;  
+      optional InnerProductParameter inner_product_param = 17;  
+      optional LRNParameter lrn_param = 18;  
+      optional MemoryDataParameter memory_data_param = 22;  
+      optional PoolingParameter pooling_param = 19;  
+      optional PowerParameter power_param = 21;  
+      optional WindowDataParameter window_data_param = 20;  
+      optional V0LayerParameter layer = 1;  
+    }  
+    <3> NetParameter  
+    message NetParameter {  
+      optional string name = 1;//网络的名字  
+      repeated LayerParameter layers = 2; //repeated类似于数组  
+      repeated string input = 3;//输入层blob的名字  
+      repeated int32 input_dim = 4;//输入层blob的维度，应该等于(4*#input)  
+      optional bool force_backward = 5 [default = false];//网络是否进行反向传播。如果设置为否，则由网络的结构和学习速率来决定是否进行反向传播。  
+    }  
+    <4> SolverParameter  
+    message SolverParameter {  
+      optional string train_net = 1; // 训练网络的proto file  
+      optional string test_net = 2; // 测试网络的proto file  
+      optional int32 test_iter = 3 [default = 0]; // 每次测试时的迭代次数  
+      optional int32 test_interval = 4 [default = 0]; // 两次测试的间隔迭代次数  
+      optional bool test_compute_loss = 19 [default = false];  
+      optional float base_lr = 5; // 基本学习率  
+      optional int32 display = 6; // 两次显示的间隔迭代次数  
+      optional int32 max_iter = 7; // 最大迭代次数  
+      optional string lr_policy = 8; // 学习速率衰减方式  
+      optional float gamma = 9; // 关于梯度下降的一个参数  
+      optional float power = 10; // 计算学习率的一个参数  
+      optional float momentum = 11; // 动量  
+      optional float weight_decay = 12; // 权值衰减  
+      optional int32 stepsize = 13; // 学习速率的衰减步长  
+      optional int32 snapshot = 14 [default = 0]; // snapshot的间隔  
+      optional string snapshot_prefix = 15; // snapshot的前缀  
+      optional bool snapshot_diff = 16 [default = false]; // 是否对于 diff 进行 snapshot  
+      enum SolverMode {  
+        CPU = 0;  
+        GPU = 1;  
+      }  
+      optional SolverMode solver_mode = 17 [default = GPU]; // solver的模式，默认为GPU  
+      optional int32 device_id = 18 [default = 0]; // GPU的ID  
+      optional int64 random_seed = 20 [default = -1]; // 随机数种子  
+    }  
+
+
