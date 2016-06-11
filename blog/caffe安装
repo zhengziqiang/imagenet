@@ -1,0 +1,186 @@
+1、前期准备
+
+首先从github上下载好caffe库： https://github.com/BVLC/caffe ，解压，得到这些东西
+
+使用这一句话创建一个makefile.config的副本
+
+接下来就是修改makefile.config，在这个文件里面对应的注释讲的很清楚，需要哪一项，吧对应那一项前面“#”去掉就好了
+
+先拿make all测试，提示错误如下：
+
+make: protoc：命令未找到 
+make: *** [.build_release/src/caffe/proto/caffe.pb.h] 错误 127
+2、编译以及安装protoc
+
+那就下载protobuf吧，在github下载，解压 https://github.com/google/protobuf ：
+
+运行
+
+$ ./autogen.sh
+
+原来先要安装curl：额，貌似curl安装不成功那就跳过吧。因为curl祈祷的作用就是下载文件，但 https://googletest.googlecode.com/files/gtest-1.7.0.zip 这个东西还是要下，那就直接下载吧，可能需要科学上网，这个方法那就八仙过海各显省通，我就不赘述。
+
+下载好以后把压缩包移动过去。
+
+找到对应位置注释掉curl
+
+再次运行，提示错误
+
+./autogen.sh: 40: ./autogen.sh: autoreconf: not found 
+
+原因是没安装 automake 工具
+
+运行命令安装：sudo apt-get install autoconf automake libtool
+
+再一次./autogen.sh，成功！然后依次运行以下命令
+
+$ ./configure
+$ make
+$ make check
+$ make install
+
+执行完make check以后出现：
+
+就说明没什么问题了，就可以继续执行make install
+
+执行完以后切换到caffe目录，先make clean一下，接着make all
+
+还是提示找不到库，
+3、安装一系列依赖库
+
+再执行安装一些库：sudo apt-get install libprotobuf-dev libleveldb-dev libsnappy-dev libopencv-dev libboost-all-dev libhdf5-serial-dev，稍等
+
+再执行make clean，接着make all，提示：
+
+./include/caffe/common.hpp:5:27: fatal error: gflags/gflags.h: 没有那个文件或目录。说明protobuf的库已经差不多了。
+4、安装gflags
+
+这里继续安装gflags： https://github.com/schuhschuh/gflags/archive/master.zip 下载。解压
+
+cd gflags-master
+mkdir build && cd build
+export CXXFLAGS="-fPIC" && cmake .. && make VERBOSE=1
+make 
+sudo make install
+
+在执行第三句话的时候可能会提示版本较低，直接在这里http://www.cmake.org/install/下载最新版本的cmake就好了（下载.sh的文件直接运行就可以了）。要配置一下环境变量
+
+然后接着执行下面两条命令，就好了。弄完之后继续切换到caffe目录，先make clean一下，接着make all
+
+./include/caffe/util/mkl_alternate.hpp:11:19: fatal error: cblas.h: 没有那个文件或目录
+compilation terminated.
+
+说明gflag安装成功了，
+5、编译安装ATLAS
+
+接下来开始搞定cblas的问题。 BLAS （Basic Linear Algebra Subprograms，基础线性代数程序集）是一个 应用程序接口 （API）标准。他的实现有很多，caffe用的是其中的三种实现ATLAS, MKL, or OpenBLAS.这里我准备使用ATLAS：http://sourceforge.net/projects/math-atlas/files/ 先下载，解压。按照官方文档写的，依次执行如下命令
+
+首先选择高性能cpu模式：
+
+/usr/bin/cpufreq-selector -g performance
+
+然后在ATLAS目录下建立文件夹
+
+   mkdir Linux_C2D64SSE3                         # create BLDdir
+   cd Linux_C2D64SSE3                            # enter BLDdir
+
+../configure -b 64 -D c -DPentiumCPS= 2800 -Fa alg -fPIC --with-netlib-lapack-tarfile=/home/haiyu/Programs_Install/lapack-3.5.0.tgz --prefix=
+
+ 
+
+/usr/local/atlas
+
+需要根据个人系统修改：
+
+ 
+
+-b 指定编译出库的类型（32位库还是64位库）
+
+-D c -DPentiumCPS 是指定你的CPU的时钟频率，可以通过 grep MHz /proc/cpuinfo 得到
+
+-Fa alg -fPIC 得到与位置无关的代码，生成动态的共享库
+
+--prefix 为安装路径
+
+--with-netlib-lapack-tarfile 则是lapack压缩包路径
+
+   make build                                    # tune & build lib
+   make check                                    # sanity check correct answer
+   make ptcheck                                  # sanity check parallel
+   make time                                     # check if lib is fast
+   make install                                  # copy libs to install dir
+
+这里还需要一个lapack的库，在这里下载 http://www.netlib.org/lapack/ ，下载之后直接把/home/whaley/dload/lapack-3.4.1.tgz替换成对应的路径就好了
+
+在执行../configure的时候，会提示gfortran:命令未找到，直接用apt-get安装即可。然后make build之后就可以休息去了。等一个小时再过来看吧。
+
+ok。。现在是第二天。昨天晚上凌晨3点的时候终于看到它提示DONE了。这速度。太！“快”！了！继续执行接下来的命令几个可以忽略的就忽略了，然后再切换到CAFFE目录make clean/all，依旧提示
+
+但这个时候在atla的prefix指定的安装路径下已经有include/cblas.h
+
+执行这两条，添加目录到include环境变量
+6、安装lmdb
+
+接着make，提示错误lmdb没装
+
+git clone git://gitorious.org/mdb/mdb.git 
+
+cd mdb/libraries/liblmdb 
+
+make && make install 
+
+运行完，再回到caffe目录编译
+
+提示 ：
+
+AR -o .build_release/lib/libcaffe.a 
+LD -o .build_release/lib/libcaffe.so 
+/usr/bin/ld: cannot find -lcblas 
+/usr/bin/ld: cannot find -latlas 
+collect2: error: ld returned 1 exit status
+7、安装其他依赖包
+
+解决办法：安装这些包
+
+apt-get install libatlas-dev 
+apt-get install liblapack-dev 
+apt-get install  libatlas-base-dev 
+
+问题解决
+
+又提示这个错误.build_release/lib/libcaffe.so: undefined reference to `google::protobuf，重新编译protobuf
+
+make uninstall 
+make clean 
+
+./configure --prefix=/usr
+
+make
+
+make check
+make install
+
+搞定，返回caffe，编译成功！！！！！！！！！！！！！此处有掌声！！！！！
+
+然后把目录添加到PYTHON环境变量就行了
+
+export PYTHONPATH=$PYTHONPATH:/home/cj695/protobuf/python/ 
+最后还要找到protobuf的Python目录
+
+python setup.py build
+python setup.py test
+python setup.py install
+
+安装一下
+
+激动人心的一颗来了！！！！！！！！！！！打开python，import caffe。。这一刻，我哭了！！！！！！！！！！！！！
+
+8、总结一下
+
+耗费两天时间，卡时间比较多的主要有两个地方，首先查错一定要从上往下查。基本上最上面的错误才是最根本的错误；其次，在安装过程中对配置做过的修改一定要记清楚，别自己把安装路径改了结果还不知道是怎么回事。
+
+另外，如果在安装gflags的时候出现问题，可以实验一下用apt-get安装gflag，命令如下：
+
+sudo apt-get install python-gflags
+
+caffe的配置大概也就这些内容，希望这篇文章能够对你有所帮助
