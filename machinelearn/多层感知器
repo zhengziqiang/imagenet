@@ -1,0 +1,60 @@
+const unsignedint nInput=4;
+const unsignedint nOutputs=3;
+const unsignedint nHiddens=4;
+struct mlp{
+	double inputs[nInput+1];
+	double outputs[nOutputs];
+	double hiddens[nHiddens+1];//多一个一般设置为bias
+	double weight_hidden
+}
+    //////////////////////////////////////////////////////////////////////////  
+    //Multi-Layerperceptrons(MLP)  
+    const unsignedint nInputs  =4;  
+    const unsignedint nOutputs = 3;  
+    const unsignedint nHiddens = 4;  
+    struct mlp  
+    {  
+        doubleinputs[nInputs+1];//多一个，存放的bias，一般存放入1  
+        doubleoutputs[nOutputs];  
+        doublehiddens[nHiddens+1]; //多一个，存放的bias，一般存放入1  
+        doubleweight_hiddens_2_inputs[nHiddens+1][nInputs+1];  
+        doubleweight_outputs_2_hiddens[nOutputs][nHiddens+1];  
+    };  
+    //这里我们对乘机和的处理：如果大于0，则输出值为1；其他情况，输出值为-1  
+    double sigmoid (double val)  
+    {  
+        if(val >0.0)  
+            return1.0;  
+        else  
+            return-1.0;  
+    }  
+    //计算输出端  
+    bool mlp_calculate_outputs(mlp * pMlp)  
+    {  
+        if(NULL ==pMlp)  
+            return false;  
+        double sum =0.0;  
+        //首先计算隐藏层中的每一个结点的值  
+        for (int h = 0 ; h < nHiddens ; ++h)  
+        {  
+            doublesum = 0.0;  
+            for (int i = 0 ; i < nInputs + 1 ; ++i)  
+            {  
+                sum += pMlp->weight_hiddens_2_inputs[h][i]*pMlp->inputs[i];  
+            }  
+           pMlp->hiddens[h] = sigmoid (sum);  
+       
+        }  
+         //利用隐藏层作为“输入层”，计算输出层  
+        for (int o = 0 ; o < nOutputs ; ++o)  
+        {  
+            doublesum = 0.0;  
+            for (int h = 0 ; h < nHiddens + 1 ; ++h)  
+            {  
+                sum += pMlp->weight_outputs_2_hiddens[o][h]*pMlp->hiddens[h];  
+            }  
+            pMlp->outputs[o] = sigmoid (sum);  
+        }  
+        return true;  
+    }  
+    //////////////////////////////////////////////////////////////////////////  

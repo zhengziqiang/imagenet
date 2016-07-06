@@ -1,0 +1,2 @@
+//singlelayer perceptrons(SLP)
+bool slp_calcilate_output(const double *inputs,const double *weights,)
